@@ -20,19 +20,45 @@ Cs  = l_f * Ca_f - l_r * Ca_r;
 Cq2 = l_f^2 * Ca_f + l_r^2 * Ca_r;
 
 %% Continuous system dynamics 
-% state vector x = [v r]
+
+%Simple model:
+% % state vector x = [v r]
+% % control vector u = [delta]
+% % output vector y = [ay r beta v]
+% % delta - road steering angle, rad
+% % ay - lateral acceleration, m/s^2
+% % r - yaw rate, rad/s
+% % v - lateral velocity, m/s
+% % beta - sideslip angle, rad
+% 
+% A_ss = -[Ct / (m * Vx), Cs / (m * Vx) + Vx; Cs / (Izz * Vx), Cq2 / (Izz * Vx)];
+% B_ss = [Ca_f / m; l_f * Ca_f / Izz];
+% C_ss = [-Ct / (m * Vx), -Cs / (m * Vx); 0, 1; 1/Vx, 0; 1 0];
+% D_ss = [Ca_f / m; 0; 0; 0];
+
+%More complex model:
+% state vector x = [y vy yaw r]
 % control vector u = [delta]
-% output vector y = [ay r beta v]
+% output vector y = [ay r beta vy]
 % delta - road steering angle, rad
 % ay - lateral acceleration, m/s^2
 % r - yaw rate, rad/s
-% v - lateral velocity, m/s
-% beta - sideslip angle, rad
+% vy - lateral velocity, m/s
+% vx - longitudinal velocity, m/s
 
-A_ss = -[Ct / (m * Vx), Cs / (m * Vx) + Vx; Cs / (Izz * Vx), Cq2 / (Izz * Vx)];
-B_ss = [Ca_f / m; l_f * Ca_f / Izz];
-C_ss = [-Ct / (m * Vx), -Cs / (m * Vx); 0, 1; 1/Vx, 0; 1 0];
-D_ss = [Ca_f / m; 0; 0; 0];
+A_ss = -[0, 1, 0, 0; 
+    0, -Ct / (m * Vx), 0,-Vx - Cs/(m * Vx);
+    0, 0, 0, 1;
+    0, -Cs/(Izz * Vx), 0, -Cq2/(Izz * Vx)];
+B_ss = [0;
+    Ca_f / m; 
+    0;
+    l_f * Ca_f / Izz];
+C_ss = [0, -Ct / (m * Vx), 0,-Cs / (m * Vx); 0, 0, 0, 1; 0, 1/Vx, 0, 0;0, 1, 0, 0];
+D_ss = [0; Ca_f / m; 0; 0];
+
+% System dimensions
+
 
 % Define transfer function
 sys_cont = ss(A_ss,B_ss,C_ss,D_ss);
@@ -42,7 +68,7 @@ systf_cont = tf(sys_cont);
 T = 10; %Simulation Time
 Ts = 0.1; %Sampling Time
 t_span = 0:Ts:T; %span vector
-x0 = [Vx, 0]';
+%x0 = [0, 0, 0, 0]';
 simulation_steps = T/Ts; 
 
 sys_disc = c2d(sys_cont, Ts);
