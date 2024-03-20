@@ -39,7 +39,7 @@ Cq2 = l_f^2 * Ca_f + l_r^2 * Ca_r;
 %More complex model:
 % state vector x = [y vy yaw r]
 % control vector u = [delta]
-% output vector y = [ay r beta vy]
+% output vector y = [y ay r vy]
 % delta - road steering angle, rad
 % ay - lateral acceleration, m/s^2
 % r - yaw rate, rad/s
@@ -68,7 +68,7 @@ sys_cont = ss(A_ss,B_ss,C_ss,D_ss);
 systf_cont = tf(sys_cont);
 
 %% Discrete system dynamics 
-T = 10; %Simulation Time
+T =5; %Simulation Time
 Ts = 0.1; %Sampling Time
 t_span = 0:Ts:T; %span vector
 %x0 = [0, 0, 0, 0]';
@@ -82,7 +82,7 @@ LTI.B = sys_disc.B;
 LTI.C = sys_disc.C;
 LTI.D = sys_disc.D;
 
-LTI.yref=[3; 0; 0; 0];             
+LTI.yref=[2; 0; 0; 0];             
 LTI.x0=[0; 0; 0; 0];
 
 %Definition of system dimension
@@ -93,7 +93,7 @@ dim.nd=0;     %disturbance dimension
 dim.N=10;      %horizon
 
 %Definition of quadratic cost function
-weight.Q=[1 0 0 0; 0 2 0 0; 0 0 3 0; 0 0 0 4];                %weight on output
+weight.Q=[10 0 0 0; 0 1 0 0; 0 0 3 0; 0 0 0 1];                %weight on output
 weight.R=eye(dim.nu);                          %weight on input
 weight.P=dare(LTI.A,LTI.B,weight.Q,weight.R);  %terminal cost
 
@@ -106,9 +106,11 @@ x=zeros(dim.nx,T+1);
 u_rec=zeros(dim.nu,T);
 dhat=zeros(dim.nd,T+1);
 
+%% Simulation 1 MPC feedback control without disturbance
 x(:,1)=LTI.x0;
+u = zeros(dim.nu, simulation_steps);
 
-for k=1:T
+for k=1:simulation_steps
     
     %Compute estimated optimal ss
     eqconstraints=eqconstraintsgen(LTI,dim);
@@ -116,7 +118,6 @@ for k=1:T
     
     x_0=x(:,k);
      
-    
     %Solve optimization problem    
     uostar = sdpvar(dim.nu*dim.N,1);                               %define optimization variable
     Constraint=[];                                                 %define constraints
@@ -125,21 +126,36 @@ for k=1:T
     uostar=value(uostar);      
 
     % Select the first input only
-    u_rec(:,k)=uostar(1:dim.nu);
+    u(:,k)=uostar(1:dim.nu);
+    x(:,k+1) = LTI.A*x(:,k) + LTI.B*Ts*u(:,k);
+
+
 
     % Compute the state/output evolution
-    x(:,k+1)=LTI.A*x_0 + LTI.B*u_rec(:,k);
-    y=LTI.C*x(:,k+1)+LTI.D*u_rec; %LTI.Cd*LTI.d+0.01*randn(dim.ny,1);
-    clear u_uncon
+    % x(:,k+1)=LTI.A*x_0 + LTI.B*u_rec(:,k);
+    % y=LTI.C*x(:,k+1)+LTI.D*u_rec; %LTI.Cd*LTI.d+0.01*randn(dim.ny,1);
+    % clear u_uncon
     
     % Update disturbance estimation
     % dhat(:,k+1)=dhat(:,k)+L*(y-LTI.C*x(:,k+1)-dhat(:,k));
  
 end
-e=y-kron(ones(1,T),LTI.yref);
-figure
-plot(0:T-1,e),
-xlabel('k'), ylabel('Tracking error'), grid on;
-legend('e_1','e_2');
+
+%% Plot simulation 1 results
+
+%PLOTTER(x,t_span);
+figure(1)
+hold on
+plot(t_span(1:end-1), u(1,:));
+legend('$\delta$');
+title('Control Inputs');
+
+figure(2)
+hold on 
+plot(t_span(1:end-1), x(1,1:end-1));
+%plot(t_span(1:end-1), x(2,1:end-1));
+%plot(t_span(1:end-1), x(3,1:end-1));
+%plot(t_span(1:end-1), x(4,1:end-1));
+%legend('y','ay','r','vy')
 
 
