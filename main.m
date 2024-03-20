@@ -136,7 +136,10 @@ for k=1:T
     % dhat(:,k+1)=dhat(:,k)+L*(y-LTI.C*x(:,k+1)-dhat(:,k));
  
 end
-
-
+e=y-kron(ones(1,T),LTI.yref);
+figure
+plot(0:T-1,e),
+xlabel('k'), ylabel('Tracking error'), grid on;
+legend('e_1','e_2');
 
 
